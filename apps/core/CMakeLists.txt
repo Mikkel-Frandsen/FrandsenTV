@@ -4,6 +4,9 @@ qt_standard_project_setup()
 
 qt_add_executable(smarttv-core
         main.cpp
+        CoreServer.cpp
+        CoreServer.h
+
 )
 
 target_link_libraries(smarttv-core

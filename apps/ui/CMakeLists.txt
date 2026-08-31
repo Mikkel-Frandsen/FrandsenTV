@@ -7,8 +7,8 @@ qt_standard_project_setup()
 
 qt_add_executable(smarttv-ui
         main.cpp
-        AppModel.cpp
-        AppModel.h
+        CoreClient.cpp
+        CoreClient.h
 )
 
 qt_add_qml_module(smarttv-ui
