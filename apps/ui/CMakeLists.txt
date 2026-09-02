@@ -9,6 +9,9 @@ qt_add_executable(smarttv-ui
         main.cpp
         CoreClient.cpp
         CoreClient.h
+        ../../libs/protocol/coreProtocol.cpp
+        ../../libs/protocol/coreProtocol.h
+        ../../libs/protocol/coreProtocol.h
 )
 
 qt_add_qml_module(smarttv-ui
@@ -23,4 +26,5 @@ target_link_libraries(smarttv-ui
         PRIVATE
         Qt6::Quick
         Qt6::Network
+        protocol
 )

@@ -12,14 +12,30 @@ class CoreClient : public QObject {
 public:
     CoreClient();
     void connectToCore();
-    Q_INVOKABLE void requestStatus();
+
+    //Accessable functions for the QML
+    Q_INVOKABLE void getStatus();
+    Q_INVOKABLE void pause();
+    Q_INVOKABLE void stop();
 
 private:
     QLocalSocket socket;
+
+    QByteArray readBuffer;
+
+    void handleAcknowledgment(QByteArrayView);
+    void handleEvent(QByteArrayView);
+
+    void sendMessage(QByteArrayView);
     void readMessage();
+
+
 
 signals:
     void statusChanged(bool online);
+    void playbackPaused();
+    void playbackStopped();
+
 };
 
 

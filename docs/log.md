@@ -92,3 +92,97 @@ This creates a clean seperation; The QML does not know about how the client/serv
 # 30/08/2026
 
 I have intially thought about the structure of this project for quite a long time, and have finially decided to concretise my thouhgts in this rep.
+
+# 31/08/2026
+
+Currently, working on getting the IPC layer formalized.
+I will start with these commands:
+STATUS
+PLAY <movie>
+PAUSE
+STOP
+and these events/responses: ONLINE
+PLAYBACK_STARTED
+PLAYBACK_STOPPED
+
+## Small refactor
+```plantuml
+QObject::connect(&server,&QLocalServer::newConnection,
+    [this]() {
+        clientSocket = server.nextPendingConnection();
+        qDebug() << "Client Connected to us!";
+        //we get a segmentation fault without this check ;)
+        if (clientSocket == nullptr) {
+            qDebug() << "No client socket!";
+            return;
+        }
+        QObject::connect(clientSocket,&QLocalSocket::readyRead,
+        [this]() {
+                qDebug() << "Message received!";
+                readMessage();
+            });
+        });
+```
+I decided to extrapolate the lamdpa function with the connect (In CoreServer).
+
+# 02/09/2026
+I decided to rework the current workings, to ensure a proper design of these important protocols.
+
+I will split the protocols into a different things;
+    
+Query: 
+    From A->B->A, act based on the information in the query AND the state of B.
+    Returns from data in B->A
+    There are no side effects - so safe to retry
+
+    Examples:
+        getCatalog(), search(query), getSettings(), getAvailability(movie_id)
+        
+Command: 
+    From A->B, this causes a state change or an external effect. 
+    No data returned. Maybe events are sent
+
+    Examples:
+        play(), pause(), selectProvider(), setSettings(), launchGame()
+
+Events:
+    From B->A, annouces something has happened.
+
+Ack:
+    From B->A, annouces that B has received a command, and will now start to do it
+    Note it does not garentuee it will be done! This is what events are used for
+
+I have implemented this, and fairly happy with it.
+
+I will now turn to implementing a very simple database manager. 
+This will works as such:
+```
+     ┌──────────────┐
+     │      UI      │
+     └──────┬───────┘
+            │ IPC
+            ▼
+     ┌──────────────┐
+     │     Core     │
+     │    Server    │
+     └──────┬───────┘
+            │ IPC
+            ▼
+┌─────────────────────────┐
+│    DatabaseManager      │
+│         Server          │
+└───────────┬─────────────┘
+            ▲
+            │ IPC
+            │
+      ┌─────┴─────┐
+      │   Sync    │
+      │  Client   │
+      └───────────┘
+```
+After reworking the protocol such that we have a database protocol and a core protocol, I will now start on the database server.
+Both Sync and Core will eventually become DatabaseClients, connected to the DatabaseServer. 
+The databaseServer will handle communication with clients, and forward requests to the databaseManager who will do the actual SQL
+
+I here decided, that since we now have two servers, implementing the same IPC stuff could be done using inherientece. 
+I decided to use the template method design pattern for this

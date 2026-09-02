@@ -2,23 +2,29 @@
 // Created by LHF on 31/08/2026.
 //
 
-#ifndef SMARTTV_CORESERVER_H
-#define SMARTTV_CORESERVER_H
+#pragma once
+
 #include <QLocalServer>
 #include <QDebug>
 #include <QLocalSocket>
 
-
-class CoreServer {
+class CoreServer : public QObject {
+    Q_OBJECT
 public:
     CoreServer();
-    bool isOnline();
+    bool isOnline() const;
 private:
     QLocalServer server;
     QLocalSocket *clientSocket = nullptr;
-    void sendMessage(QByteArray, QLocalSocket*);
+
+    QByteArray readBuffer;
+
+    static void sendMessage(QByteArrayView, QLocalSocket*);
+    void readMessage();
+    void handleQuery(QByteArrayView);
+    void handleCommand(QByteArrayView);
+    void handleNewConnection();
+
 };
 
 
-
-#endif //SMARTTV_CORESERVER_H
