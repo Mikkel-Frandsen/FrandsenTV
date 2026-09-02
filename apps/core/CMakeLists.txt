@@ -12,6 +12,8 @@ qt_add_executable(smarttv-core
         ../../libs/protocol/databaseProtocol.h
         ../../libs/ipc/localServer.cpp
         ../../libs/ipc/localServer.h
+        ../../libs/ipc/localClient.cpp
+        ../../libs/ipc/localClient.h
 
 
 )
@@ -21,4 +23,5 @@ target_link_libraries(smarttv-core
         Qt6::Core
         Qt6::Network
         protocol
+        localServer
 )

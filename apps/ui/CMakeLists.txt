@@ -12,6 +12,8 @@ qt_add_executable(smarttv-ui
         ../../libs/protocol/coreProtocol.cpp
         ../../libs/protocol/coreProtocol.h
         ../../libs/protocol/coreProtocol.h
+        ../../libs/ipc/localClient.cpp
+        ../../libs/ipc/localClient.h
 )
 
 qt_add_qml_module(smarttv-ui

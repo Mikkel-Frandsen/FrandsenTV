@@ -4,27 +4,16 @@
 
 #pragma once
 
-#include <QLocalServer>
-#include <QDebug>
-#include <QLocalSocket>
-
-class CoreServer : public QObject {
+#include "localServer.h"
+class CoreServer : public LocalServer {
     Q_OBJECT
 public:
-    CoreServer();
-    bool isOnline() const;
+    CoreServer(const QString& serverName);
+protected:
+    void handleMessage(QByteArray, QLocalSocket*) override;
 private:
-    QLocalServer server;
-    QLocalSocket *clientSocket = nullptr;
-
-    QByteArray readBuffer;
-
-    static void sendMessage(QByteArrayView, QLocalSocket*);
-    void readMessage();
-    void handleQuery(QByteArrayView);
-    void handleCommand(QByteArrayView);
-    void handleNewConnection();
-
+    void handleQuery(QByteArrayView, QLocalSocket*);
+    void handleCommand(QByteArrayView, QLocalSocket*);
 };
 
 

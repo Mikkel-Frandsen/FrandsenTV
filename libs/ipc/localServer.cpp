@@ -3,9 +3,9 @@
 //
 
 #include "localServer.h"
-LocalServer::LocalServer()
+LocalServer::LocalServer(const QString& serverName)
 {
-    if (!server.listen("smartTV-core")) {
+    if (!server.listen(serverName)) {
         qWarning() << server.errorString();
     }
     //This creates a signal for the server, that fires once a newConnection is achived.
@@ -56,7 +56,7 @@ void LocalServer::readMessage() {
         QByteArray message = readBuffer.left(newlineIndex + 1);
         //Remove that message from the buffer.
         readBuffer.remove(0, newlineIndex + 1);
-        handleMessage(message);
+        handleMessage(message, clientSocket);
     }
 }
 
