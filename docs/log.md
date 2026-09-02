@@ -186,3 +186,9 @@ The databaseServer will handle communication with clients, and forward requests 
 
 I here decided, that since we now have two servers, implementing the same IPC stuff could be done using inherientece. 
 I decided to use the template method design pattern for this
+
+
+#03/09/26
+I decided to rework the system architeture.
+Now, Core will own a databasemanger, with a conncetion to the database, to lower latency.
+Furthermore all messages will be 

@@ -1,12 +1,19 @@
-//
-// Created by LHF on 30/08/2026.
-//
+#include <QCoreApplication>
 
-#include <iostream>
+#include "SyncManager.h"
 
-int main()
+int main(int argc, char *argv[])
 {
-    std::cout << "SmartTV Sync started!" << std::endl;
+    QCoreApplication app(argc, argv);
 
-    return 0;
+    SyncManager syncManager;
+    syncManager.getPopularMovies();
+    syncManager.getTop10("dk", "prime", "movie");
+    syncManager.getTop10("dk", "netflix", "movie");
+    syncManager.getTop10("dk", "disney", "movie");
+
+    //qDebug() << syncManager.shouldFetchToday("popularMovies-themoviedb");
+
+
+    return app.exec();
 }

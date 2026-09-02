@@ -16,11 +16,12 @@ int main(int argc, char *argv[])
         "coreClient",
         &core_client
     );
+
     engine.loadFromModule("SmartTV", "Main");
 
 
-    core_client.connectToCore();
-
+    core_client.connectToServer("smartTV-core");
+    core_client.ping(); //This essentially just shows that on the UI we have not connected before we connect ;=)
 
     return app.exec();
 

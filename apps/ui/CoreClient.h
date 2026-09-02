@@ -5,29 +5,32 @@
 #ifndef SMARTTV_CORECLIENT_H
 #define SMARTTV_CORECLIENT_H
 #include <QLocalSocket>
-
-
-class CoreClient : public QObject {
+#include "localClient.h"
+class CoreClient : public LocalClient {
     Q_OBJECT
 public:
     CoreClient();
-    void connectToCore();
 
     //Accessable functions for the QML
-    Q_INVOKABLE void getStatus();
+    Q_INVOKABLE void ping();
+
+    Q_INVOKABLE void getCatalog();
+
+    Q_INVOKABLE void getTopContent(QString content, QString service, QString country);
+
+    Q_INVOKABLE void play(QString streamio_id);
+
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
-
+protected:
+    void handleMessage(Protocol::Message message) override;
 private:
-    QLocalSocket socket;
-
-    QByteArray readBuffer;
 
     void handleAcknowledgment(QByteArrayView);
     void handleEvent(QByteArrayView);
 
-    void sendMessage(QByteArrayView);
-    void readMessage();
+
+
 
 
 
@@ -35,6 +38,8 @@ signals:
     void statusChanged(bool online);
     void playbackPaused();
     void playbackStopped();
+    void catalogReceived(QVariantList movies);
+    void topContentReceived(QVariantList movies, QString service, QString country, QString content);
 
 };
 

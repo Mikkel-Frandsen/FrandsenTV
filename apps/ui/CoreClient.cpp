@@ -2,112 +2,163 @@
 // Created by LHF on 31/08/2026.
 //
 #include <QDebug>
-#include "../../libs/protocol/coreProtocol.h"
-
-
 #include "CoreClient.h"
-CoreClient::CoreClient() {
+CoreClient::CoreClient()
+{
+}
 
-    //We want it to let us know once it is connected, and thus setup a signal here.
-    QObject::connect(
-    &socket,
-    &QLocalSocket::connected,
-    [this]() {
-        qDebug() << "Connected!";
-
+void CoreClient::getCatalog() {
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::QueryGetCatalog,
+{}
     });
-
-    QObject::connect(
-        &socket,
-        &QLocalSocket::readyRead,
-        this,
-        &CoreClient::readMessage
-        );
-
-
-
 }
 
-void CoreClient::connectToCore() {
-    socket.connectToServer("smartTV-core");
+void CoreClient::getTopContent(QString content, QString service, QString country) {
+    QJsonObject core;
+    core["content"] = content;
+    core["country"] = country;
+    core["service"] = service;
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::QueryGetTopContent,
+core
+    });
 }
 
 
 
-// ----- Sending of messages (Queries/Commands) -----
-
-//Centrilized function to send messages. Ensures we are connected to the server
-void CoreClient::sendMessage(QByteArrayView message) {
-    if (socket.state() != QLocalSocket::ConnectedState) {
-        qWarning() << "Cannot send message: not connected";
-        return;
-    }
-    socket.write(QByteArray(message));
-    socket.flush();
+void CoreClient::play(QString streamio_id) {
+    QJsonObject core;
+    core["streamio_id"] = streamio_id;
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::CommandPlay,
+        core
+    });
 }
 
 
-void CoreClient::getStatus() {
-    sendMessage(CoreProtocol::Query::GetStatus);
+void CoreClient::ping() {
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::QueryPing,
+{}
+    });
 }
 
 void CoreClient::pause() {
-    sendMessage(CoreProtocol::Command::Pause);
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::CommandPause,
+{}
+    });
 }
-
 void CoreClient::stop() {
-    sendMessage(CoreProtocol::Command::Stop);
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::CommandStop,
+{}
+    });
 }
 
-// ----------------------------------------
+void CoreClient::handleMessage(Protocol::Message message)
+{
+    qDebug() << "Received Message from Server";
+    switch (message.type) {
+        case Protocol::MessageType::CommandPause:
+            qDebug() << "Received CommandPause";
+            break;
+
+        case Protocol::MessageType::CommandPlay:
+            qDebug() << "Received CommandPlay";
+            break;
+
+        case Protocol::MessageType::CommandStop:
+            qDebug() << "Received CommandStop";
+            break;
+
+        case Protocol::MessageType::ResponseGetTopContent: {
+            qDebug() << "Received ResponseGetTopContent";
+            QJsonObject data = message.data;
+            const Catalog catalog = Protocol::decodeCatalog(data["catalog"].toObject());
+            QVariantList movies;
+
+            for (const Movie& movie : catalog.movies) {
+                QVariantMap item;
+
+                item["title"] = movie.title;
+                item["year"] = movie.year;
+                item["genre"] = movie.genre;
+                item["poster"] = movie.poster_path;
+                item["content_id"] = movie.imdbID;
 
 
+                movies.append(item);
+            }
+            qDebug() << "countr" << data["country"].toString();
+            qDebug() << "service" << data["service"].toString();
+            qDebug() << "content" << data["content"].toString();
+            emit topContentReceived(movies,
+                data["country"].toString(),
+                data["service"].toString(),
+                data["content"].toString());
 
+            break;
 
-void CoreClient::readMessage() {
-    readBuffer += socket.readAll();
-    while (readBuffer.contains('\n')) {
-        //Find the first \n
-        const int newlineIndex = readBuffer.indexOf('\n');
-        //Take all bytes before that \n
-        QByteArray message = readBuffer.left(newlineIndex + 1);
-        //Remove that message from the buffer.
-        readBuffer.remove(0, newlineIndex + 1);
-
-        switch (CoreProtocol::getMessageType(message)) {
-            case Protocol::MessageType::Event:
-                handleEvent(message);
-                break;
-            case Protocol::MessageType::Acknowledgment:
-                handleAcknowledgment(message);
-                break;
-            default:
-                break;
         }
-    }
-}
 
 
-void CoreClient::handleAcknowledgment(QByteArrayView message) {
-    if (message == CoreProtocol::Acknowledgment::AckPause) {
-        qDebug() << "Received ACK for Pause";
-        //Do something here. If we dont get an ack, what should the protocol do
-    } else if (message == CoreProtocol::Acknowledgment::AckStop) {
-        qDebug() << "Received ACK for Stop";
-        //Do something here. If we dont get an ack, what should the protocol do
-    }
-}
+        case Protocol::MessageType::ResponseGetCatalog: {
+            qDebug() << "Received ResponseGetCatalog";
+            QJsonObject data = message.data;
+            const Catalog catalog = Protocol::decodeCatalog(data);
+            QVariantList movies;
 
-void CoreClient::handleEvent(QByteArrayView message) {
-    if (message == CoreProtocol::Event::Online) {
-        qDebug() << "Recieved ONLINE status";
-        emit statusChanged(true);
-    } else if (message == CoreProtocol::Event::PlaybackPaused) {
-        qDebug() << "Recieved PLAYBACK_PAUSED";
-        emit playbackPaused();
-    } else if (message == CoreProtocol::Event::PlaybackStopped) {
-        qDebug() << "Recieved PLAYBACK_STOPPED";
-        emit playbackStopped();
+            for (const Movie& movie : catalog.movies) {
+                QVariantMap item;
+
+                item["title"] = movie.title;
+                item["year"] = movie.year;
+                item["genre"] = movie.genre;
+                item["poster"] = movie.poster_path;
+                item["content_id"] = movie.imdbID;
+
+
+                movies.append(item);
+            }
+
+            emit catalogReceived(movies);
+
+            break;
+
+        }
+
+        case Protocol::MessageType::ResponsePing: {
+            qDebug() << "Received ResponsePing";
+            QJsonObject data = message.data;
+
+            QJsonObject core = data["core"].toObject();
+            if (core.isEmpty()) {
+                qWarning() << "Ping response missing core data";
+                return;
+            }
+            QJsonObject database = data["database"].toObject();
+
+            QString coreStatus = core["status"].toString();
+            QString databaseStatus = database["status"].toString();
+
+            qDebug() << "Core:" << coreStatus;
+            qDebug() << "Database:" << databaseStatus;
+            if (coreStatus == "online") {
+                qDebug() << "Emitting statusChanged(true)";
+                emit statusChanged(true);
+            }
+            break;
+        }
+
+        case Protocol::MessageType::Unknown:
+            qDebug() << "Received Unknown";
+            break;
+
+
+        default:
+            break;
     }
 }
 

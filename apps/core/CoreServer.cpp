@@ -3,107 +3,114 @@
 //
 
 #include "CoreServer.h"
-#include "../../libs/protocol/coreProtocol.h"
 
-CoreServer::CoreServer()
+CoreServer::CoreServer(const QString& serverName)
+    :   LocalServer(serverName),
+        playbackManager(this)
 {
-    if (!server.listen("smartTV-core")) {
-        qWarning() << server.errorString();
-    }
-    //This creates a signal for the server, that fires once a newConnection is achived.
-    //Once a new connection is found, we simply call the function newConnection (Using "this" instance)
-    QObject::connect(
-        &server,
-        &QLocalServer::newConnection,
-        this,
-        &CoreServer::handleNewConnection
-    );
 
 }
-bool CoreServer::isOnline() const {
-    return server.isListening();
-}
 
-//This is called once a new conncetion is established.
-//It gets the socket, checks that it is not null - and if it is not it setups a signal
-//The signal fires once, the socket tells us that something is ready to be read, and then we read it.
-void CoreServer::handleNewConnection() {
-    clientSocket = server.nextPendingConnection();
-    qDebug() << "Client Connected to us!";
-    //we get a segmentation fault without this check ;)
-    if (clientSocket == nullptr) {
-        qDebug() << "No client socket!";
-        return;
-    }
-    QObject::connect(clientSocket,&QLocalSocket::readyRead,
-    [this]() {
-            qDebug() << "Message received!";
-            readMessage();
-        });
-}
+void CoreServer::handleMessage(Protocol::Message message, QLocalSocket *clientSocket) {
+    switch (message.type) {
+        case Protocol::MessageType::CommandPause:
+            qDebug() << "Received CommandPause";
+            break;
 
-void CoreServer::sendMessage(QByteArrayView message, QLocalSocket *client_Socket) {
-    client_Socket->write(QByteArray(message));
-    client_Socket->flush();
-}
-
-//We now load in the all we can read. If we get messages such as ST -> OP -> \nSTART\n
-//We now handle those correctly, since the first two will NOT go into the loop, but simply build the buffer.
-void CoreServer::readMessage() {
-    readBuffer += clientSocket->readAll();
-    while (readBuffer.contains('\n')) {
-        //Find the first \n
-        const int newlineIndex = readBuffer.indexOf('\n');
-        //Take all bytes before that \n
-        QByteArray message = readBuffer.left(newlineIndex + 1);
-        //Remove that message from the buffer.
-        readBuffer.remove(0, newlineIndex + 1);
-        switch (CoreProtocol::getMessageType(message)) {
-            case Protocol::MessageType::Query:
-                qDebug() << "A query message";
-                handleQuery(message);
-                break;
-            case Protocol::MessageType::Command:
-                qDebug() << "A command message";
-
-                handleCommand(message);
-                break;
-            default:
-                break;
+        case Protocol::MessageType::CommandPlay: {
+            //todo make a check that this is actually the correctdata type (QSTING)
+            QJsonObject data = message.data;
+            QString streamioID = data["streamio_id"].toString();
+            qDebug() << "Received CommandPlay :" <<streamioID;
+            qDebug() << "PlaybackManager:" << &playbackManager;
+            qDebug() << "BEFORE playMovie";
+            playbackManager.playMovie(streamioID);
+            qDebug() << "AFTER playMovie";
+            break;
         }
-    }
-}
+        case Protocol::MessageType::CommandStop: {
+            qDebug() << "Received CommandStop";
+            break;
+        }
 
-//This handles any queries (currently with a if statement)
-void CoreServer::handleQuery(QByteArrayView query) {
-    if (query == CoreProtocol::Query::GetStatus) {
-        qDebug() << "Received STATUS query!";
-        sendMessage(CoreProtocol::Event::Online, clientSocket);
-    }
-}
+        case Protocol::MessageType::QueryGetMovie: {
+        }
+        case Protocol::MessageType::QueryGetTopContent: {
 
-//This handles any commands (currently with a if statement)
-//Currently they dont actually cause a state change
-// ACK = command was received and accepted.
-// Event = resulting state change actually occurred.
-void CoreServer::handleCommand(QByteArrayView command) {
-    if (command == CoreProtocol::Command::Pause) {
-        qDebug() << "Received PAUSE command!";
-        sendMessage(CoreProtocol::Acknowledgment::AckPause, clientSocket);
+            qDebug() << "Received QueryGetTopContent";
+            //return a catalog of topMovies (needs service, country)
+            //message.data["country, content, service"]...
 
-        //      ------
-        //...Actually pause...
-        //      ------
 
-        sendMessage(CoreProtocol::Event::PlaybackPaused, clientSocket);
-    }
-    if (command == CoreProtocol::Command::Stop) {
-        qDebug() << "Received STOP command!";
-        sendMessage(CoreProtocol::Acknowledgment::AckStop, clientSocket);
-        //      ------
-        //...Actually stop...
-        //      ------
+            Catalog catalog = databaseManager.getTopMovies(
+                message.data["service"].toString(),
+                message.data["country"].toString());
 
-        sendMessage(CoreProtocol::Event::PlaybackStopped, clientSocket);
+            qDebug() << "Creating Response";
+            QJsonObject res = message.data;
+            res["catalog"] = Protocol::encodeCatalog(catalog);
+            Protocol::Message response{
+                Protocol::MessageType::ResponseGetTopContent,
+                res
+            };
+            qDebug() << "Sending ResponseGetTopContent";
+            sendMessage(
+                    response,
+                    clientSocket
+                );
+            break;
+        }
+
+
+        case Protocol::MessageType::QueryGetCatalog: {
+
+            qDebug() << "Received QueryGetCatalog";
+            Catalog catalog = databaseManager.getCatalog();
+            qDebug() << "Creating Response";
+
+            Protocol::Message response{
+                Protocol::MessageType::ResponseGetCatalog,
+                Protocol::encodeCatalog(catalog)
+            };
+            qDebug() << "Sending ResponseGetCatalog";
+            sendMessage(
+                    response,
+                    clientSocket
+                );
+            break;
+        }
+        case Protocol::MessageType::QueryPing: {
+            qDebug() << "Received QueryPing";
+
+            QJsonObject core;
+            core["status"] = "online";
+
+            QJsonObject database;
+            database["status"] = "connected";
+
+            QJsonObject data;
+            data["core"] = core;
+            data["database"] = database;
+
+            Protocol::Message response_message = {
+                Protocol::MessageType::ResponsePing,
+                data
+            };
+
+            sendMessage(
+                response_message,
+                clientSocket
+            );
+
+            break;
+        }
+            
+        case Protocol::MessageType::Unknown:
+            qDebug() << "Received Unknown";
+            break;
+
+
+        default:
+            break;
     }
 }
