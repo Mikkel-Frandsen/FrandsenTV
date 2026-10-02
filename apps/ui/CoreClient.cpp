@@ -25,7 +25,14 @@ core
     });
 }
 
-
+void CoreClient::getPage(Protocol::Page page) {
+    QJsonObject data;
+    data["page"] = data["page"] = static_cast<int>(page);
+    sendMessage(Protocol::Message{
+        Protocol::MessageType::QueryGetPage,
+        data
+    });
+}
 
 void CoreClient::play(QString streamio_id) {
     QJsonObject core;
@@ -101,6 +108,51 @@ void CoreClient::handleMessage(Protocol::Message message)
 
             break;
 
+        }
+        case Protocol::MessageType::ResponseGetPage: {
+            qDebug() << "Received ResponseGetPage";
+
+            const QJsonObject data = message.data;
+            const QJsonArray catalogsJson = data["catalogs"].toArray();
+
+            QVariantList catalogs;
+
+            for (const QJsonValue& value : catalogsJson) {
+                const Catalog catalog =
+                    Protocol::decodeCatalog(value.toObject());
+
+                QVariantMap catalogItem;
+
+                catalogItem["id"] = catalog.id;
+                catalogItem["title"] = catalog.title;
+
+                QVariantList movies;
+
+                for (const Movie& movie : catalog.movies) {
+                    QVariantMap movieItem;
+
+                    movieItem["title"] = movie.title;
+                    movieItem["year"] = movie.year;
+                    movieItem["genre"] = movie.genre;
+                    movieItem["poster"] = movie.poster_path;
+                    movieItem["content_id"] = movie.stremioID;
+
+                    movies.append(movieItem);
+                }
+
+                catalogItem["movies"] = movies;
+
+                catalogs.append(catalogItem);
+            }
+
+            const int page = data["page"].toInt();
+
+            qDebug() << "Received page:" << page;
+            qDebug() << "Received catalogs:" << catalogs.size();
+
+            emit pageReceived(catalogs, page);
+
+            break;
         }
 
 

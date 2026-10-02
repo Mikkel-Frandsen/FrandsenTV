@@ -3,7 +3,7 @@
 #include <QByteArray>
 #include <QJsonArray>
 #include <QJsonObject>
-#include "../domain/catalog.h"
+#include "../domain/Catalog.h"
 
 namespace Protocol {
 
@@ -18,11 +18,13 @@ namespace Protocol {
         QueryGetMovie,
         QueryPing,
         QueryGetTopContent,
+        QueryGetPage,
 
 
         ResponseGetCatalog,
         ResponsePing,
         ResponseGetTopContent,
+        ResponseGetPage,
 
         // responses/events later
         // ...
@@ -41,4 +43,12 @@ namespace Protocol {
     //Convert from Domain to IPC
     QJsonObject encodeCatalog(const Catalog&);
     Catalog decodeCatalog(const QJsonObject&);
+
+    enum class Page {
+        Home,
+        Movies,
+        Series,
+        Apps,
+        Catalog,
+    };
 }

@@ -69,7 +69,7 @@ Item {
                     width: parent.width
                     anchors.top: parent.top
 
-                    title: modelData.service + ", " + modelData.country
+                    title: modelData.title
                     model: modelData.catalog
 
                     onPlayMovie: function(movieId) {

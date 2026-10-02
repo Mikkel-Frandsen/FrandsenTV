@@ -21,102 +21,47 @@ QString RealDebridClient::buildMagnetLink(const QString& infoHash)
     return "magnet:?xt=urn:btih:" + infoHash;
 }
 
-static size_t writeCallback(
-    char* ptr,
-    size_t size,
-    size_t nmemb,
-    void* userdata)
-{
-    auto* data = static_cast<QByteArray*>(userdata);
-
-    data->append(ptr, size * nmemb);
-
-    return size * nmemb;
-}QString RealDebridClient::getUnrestrictedLink(
+QString RealDebridClient::getUnrestrictedLink(
     const QString &authString,
     const QString &link)
 {
-    CURL *curl = curl_easy_init();
-    if (!curl)
-        return {};
-
-    QByteArray response;
-    QString resultLink;
-
-    curl_slist *headers = nullptr;
-
-    headers = curl_slist_append(
-        headers,
-        authString.toUtf8().constData());
-
-    headers = curl_slist_append(
-        headers,
-        "Content-Type: application/x-www-form-urlencoded");
+    //URL
+    QString url = "https://api.real-debrid.com/rest/1.0/unrestrict/link";
+    //HEADERS
+    QStringList headers;
+    headers.append(authString);
+    headers.append("Content-Type: application/x-www-form-urlencoded");
+    //POST DATA
+    QStringList postData;
 
     QByteArray encodedLink = QUrl::toPercentEncoding(link);
+    QString postData1 = "link=" + encodedLink;
+    postData.append(postData1);
+    //GET RESPONSE
+    HttpResponse response = httpClient.post(url, headers, postData);
+    if (!response.httpSucess()) {
+        qDebug() << "Real-Debrid HTTP request failed:"  << response.statusCode;
+        return {};
+    }
+    if (!response.networkSucces()) {
+        qDebug() << "Real-Debrid CURL request failed:" << curl_easy_strerror(response.curlCode);
+        return {};
+    }
+    QJsonObject obj = httpClient.convertHttpResponseToJson(response);
+    QString resultLink;
 
-    QByteArray postData = "link=" + encodedLink;
 
-    curl_easy_setopt(
-        curl,
-        CURLOPT_URL,
-        "https://api.real-debrid.com/rest/1.0/unrestrict/link");
-
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(
-        curl,
-        CURLOPT_POSTFIELDS,
-        postData.constData());
-    curl_easy_setopt(
-        curl,
-        CURLOPT_POSTFIELDSIZE,
-        postData.size());
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-    CURLcode rc = curl_easy_perform(curl);
-
-    long httpStatus = 0;
-    curl_easy_getinfo(
-        curl,
-        CURLINFO_RESPONSE_CODE,
-        &httpStatus);
-
-    qDebug() << "HTTP status:" << httpStatus;
-    qDebug() << "Response:" << response;
-
-    if (rc != CURLE_OK) {
-        qDebug() << "curl error:" << curl_easy_strerror(rc);
-    } else {
-        QJsonParseError parseError;
-        QJsonDocument json =
-            QJsonDocument::fromJson(response, &parseError);
-
-        if (parseError.error == QJsonParseError::NoError &&
-            json.isObject()) {
-
-            const QJsonObject obj = json.object();
-
-            if (obj.contains("download")) {
-                resultLink =
-                    obj.value("download").toString();
-            } else if (obj.contains("error")) {
-                qDebug()
-                    << "Real-Debrid error:"
-                    << obj.value("error").toString()
-                    << "code:"
-                    << obj.value("error_code").toInt();
-            }
-        } else {
-            qDebug() << "JSON error:"
-                     << parseError.errorString();
-        }
+    if (obj.contains("download")) {
+        resultLink =
+                obj.value("download").toString();
+    } else if (obj.contains("error")) {
+        qDebug()
+                << "Real-Debrid error:"
+                << obj.value("error").toString()
+                << "code:"
+                << obj.value("error_code").toInt();
     }
 
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
 
     return resultLink;
 }
@@ -126,61 +71,35 @@ void RealDebridClient::selectFileId(const QString &id,
                                     const QString &authString,
                                     const int fileId)
 {
-    CURL *curl = curl_easy_init();
-    if (!curl)
-        return;
-
-    QByteArray response;
-
-    // Headers
-    curl_slist *headers = nullptr;
-    headers = curl_slist_append(headers, authString.toUtf8().constData());
-    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
-
-    // Endpoint
-    const QString postUrl =
+    //URL
+    const QString url =
         "https://api.real-debrid.com/rest/1.0/torrents/selectFiles/" + id;
-
-    // POST body
-    const QByteArray postData = QString("files=%1").arg(fileId).toUtf8();
-    //const QByteArray postData = QString("files=all").toUtf8();
-    curl_easy_setopt(curl, CURLOPT_URL, postUrl.toUtf8().constData());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.constData());
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, postData.size());
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-    CURLcode res = curl_easy_perform(curl);
-
-    if (res != CURLE_OK) {
-        qDebug() << "curl error:" << curl_easy_strerror(res);
-    } else {
-        qDebug() << "Response:" << response;
-    }
-
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
+    //HEADERS
+    QStringList headers;
+    headers.append(authString);
+    headers.append("Content-Type: application/x-www-form-urlencoded");
+    //POST DATA
+    QStringList postData;
+    QString postData1 = QString("files=%1").arg(fileId);
+    postData.append(postData1);
+    //We dont save the response here ;), we just want to "click" the right file
+    httpClient.post(url, headers, postData);
 }
 
 
 int RealDebridClient::getIdForSelection(QJsonObject info, const QStringList &fileFormat) {
-
     QJsonArray array = info["files"].toArray();
-    int length = fileFormat.length();
-    qDebug() << "Length fileformat" << length;
+    int length = 3;
     for (const QJsonValueRef files : array) {
         QJsonObject filesObject = files.toObject();
 
         QString path = filesObject["path"].toString();
-        qDebug() <<path;
+
         //Check if the last X (length of fileformat) is == last X in path
         QString pathEnd = path.right(length);
-        qDebug() <<pathEnd;
         //TODO: Make a comparison of byte size, say we want the largest byte if there are two mp4 files
         for (const QString& format : fileFormat) {
+            qDebug() << pathEnd;
             if (path.endsWith("." + format, Qt::CaseInsensitive)) {
                 return filesObject["id"].toInt();
             }
@@ -190,36 +109,26 @@ int RealDebridClient::getIdForSelection(QJsonObject info, const QStringList &fil
 }
 
 QJsonObject RealDebridClient::getRealDebridInfo(const QString& id, const QString &authString) {
-    CURL *curl = curl_easy_init();
-    if (!curl) {
-        return QJsonObject();
-    }
-
-    QByteArray response;
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-
-    QByteArray auth_stringByte = authString.toUtf8();
-    struct curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, auth_stringByte.constData());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
+    //URL
     QString url = "https://api.real-debrid.com/rest/1.0/torrents/info/" + id;
-    QByteArray urlByte = url.toUtf8();
-    curl_easy_setopt(curl, CURLOPT_URL, urlByte.constData());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
-    if (CURLcode res = curl_easy_perform(curl); res != CURLE_OK) {
-        qDebug() << "error from getInfo" << res;
-    } else {
-        qDebug() << "response from getIfno" << response;
-    }
-    QJsonParseError error;
+    //HEADERS
+    QStringList headers;
+    headers.append(authString);
+    //GET RESPONSE
+    HttpResponse response = httpClient.get(url, headers);
 
-    const QJsonDocument json = QJsonDocument::fromJson(response, &error);
-    qDebug() << "segfault?";
-    QJsonObject jsonObject = json.object();
+    if (!response.networkSucces()) {
+        qDebug() << "Real-Debrid CURL request failed:" << curl_easy_strerror(response.curlCode);
+        return {};
+    }
+    if (!response.httpSucess()) {
+        qDebug() << "Real-Debrid HTTP request failed:"  << response.statusCode;
+        qDebug() << response.body;
+        return {};
+    }
+
+
+    QJsonObject jsonObject = httpClient.convertHttpResponseToJson(response);
 
     QJsonObject relevantJson;
     QStringList relevantFields = {"status", "files"};
@@ -235,8 +144,7 @@ QJsonObject RealDebridClient::getRealDebridInfo(const QString& id, const QString
         relevantJson.insert("seeders", (jsonObject["seeders"]));
     }
 
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
+
 
     return relevantJson;
 
@@ -245,54 +153,35 @@ QJsonObject RealDebridClient::getRealDebridInfo(const QString& id, const QString
 }
 
 QString RealDebridClient::getRealDebridId(const QString &infoHash, const QString &authString) {
-    QByteArray auth_stringByte = authString.toLocal8Bit();
-    const char* auth_string = auth_stringByte.data();
+    //URL
+    QString url = "https://api.real-debrid.com/rest/1.0/torrents/addMagnet";
+    //HEADERS
+    QStringList headers;
+    headers.append(authString);
+    //POST DATA
+    QStringList postData;
+    QString magnetLink = "magnet=magnet:?xt=urn:btih:" + infoHash;
+    postData.append(magnetLink);
+    //GET RESPONSE
+    HttpResponse response = httpClient.post(url, headers, postData);
 
-
-    //setup the curl
-    CURL *curl = curl_easy_init();
-    QByteArray response;
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    //response array
-
-    curl_slist* headers = nullptr;
-
-    headers = curl_slist_append(headers,auth_string);
-    QByteArray postData = "magnet=magnet:?xt=urn:btih:" + infoHash.toLocal8Bit();
-    curl_easy_setopt(curl, CURLOPT_URL, "https://api.real-debrid.com/rest/1.0/torrents/addMagnet");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.constData());
-
-    // execute the request
-
-    if (CURLcode res = curl_easy_perform(curl); res != CURLE_OK) {
-        qDebug() << "NOT OKAY";
-    } else {
-        qDebug() << response;
+    if (!response.networkSucces()) {
+        qDebug() << "Real-Debrid CURL request failed:" << curl_easy_strerror(response.curlCode);
+        return {};
     }
-    QJsonParseError error;
-
-    const QJsonDocument json =
-        QJsonDocument::fromJson(response, &error);
-
-    if (error.error != QJsonParseError::NoError ||
-        !json.isObject()) {
-
-        qDebug() << "Invalid JSON:"
-                 << error.errorString();
+    if (!response.httpSucess()) {
+        qDebug() << "Real-Debrid HTTP request failed:"  << response.statusCode;
+        qDebug() << "Response:" << response.body;
+        return {};
+    }
 
 
-        }
-    QJsonObject data = json.object();
+    QJsonObject data = httpClient.convertHttpResponseToJson(response);
     qDebug() << data["id"].toString();
     // clean up headers after execution is complete
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
+
     if (data["id"].toString() == "") {
-        return response; // get full response with errors
+        return response.body; // get full response with errors
     }
     return data["id"].toString();
 }
@@ -317,18 +206,17 @@ void RealDebridClient::getStreamLink(const QString& infoHash, int fileIdx) {
     QJsonObject infoResponse = getRealDebridInfo(realDebridID, authQString);
     qDebug() << "info 1 response" << infoResponse;
     qDebug() << fileIdx;
-    if (fileIdx == -1 or fileIdx == 0) {
-        fileIdx = getIdForSelection(infoResponse, {"mkv", "mp4", "avi", "mov"});
-        qDebug() << "IDn"<<fileIdx;
+    int fileIdx1 = getIdForSelection(infoResponse, {"mkv", "mp4", "avi", "mov"});
+    qDebug() << fileIdx1;
 
-    }
-    selectFileId(realDebridID, authQString, fileIdx);
+    selectFileId(realDebridID, authQString, fileIdx1);
     qDebug() << "Getting info2";
     QJsonObject infoResponse2 = getRealDebridInfo(realDebridID, authQString);
     while (getRealDebridInfo(realDebridID, authQString)["status"]== "queued") {
 
     }
     while (getRealDebridInfo(realDebridID, authQString)["status"]== "downloading") {
+        qDebug() << "Downloading";
         if (getRealDebridInfo(realDebridID, authQString)["seeders"]== 0) {
             emit streamError("");
             return;

@@ -1,0 +1,12 @@
+03/10/26
+Formalise catagory fetching
+
+Future:
+- Create the a QML diagram.
+- Implement the shell for MPV player, allowing for personalition AND interseption of inputs
+- Implement the remote interface, allowing for usage of the app using "arrows".
+    This should be polymorphic, such that any remote/controller/keyboard can be adapted
+    and pending on what the app is doing (youtube, movies, emulation, etc...)
+- Create the youtube APP
+- Implement a simple emulating interface
+- Update the UI using the most recent AI (SI ;-)) model.

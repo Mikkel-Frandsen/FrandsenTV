@@ -18,5 +18,6 @@ target_link_libraries(smarttv-sync
         protocol
         database
         domain
+        http
 )
 

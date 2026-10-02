@@ -7,5 +7,7 @@
 class Catalog
 {
 public:
+    QString id;
+    QString title;
     QList<Movie> movies;
 };

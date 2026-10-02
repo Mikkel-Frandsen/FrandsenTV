@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QString>
 
+#include "../http/HttpClient.h"
+
 class QNetworkAccessManager;
 
 class RealDebridClient : public QObject
@@ -25,6 +27,6 @@ private:
     void selectFileId(const QString& id, const QString& authString, int fileId);
     int getIdForSelection(QJsonObject info, const QStringList& fileFormat);
     QString getUnrestrictedLink(const QString& authString, const QString& link);
-
+    HttpClient httpClient;
     QNetworkAccessManager* networkManager;
 };

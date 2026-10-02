@@ -192,3 +192,20 @@ I decided to use the template method design pattern for this
 I decided to rework the system architeture.
 Now, Core will own a databasemanger, with a conncetion to the database, to lower latency.
 Furthermore all messages will be 
+
+
+#02/10/26
+The project have taken quite the upswing. 
+The current issue recide in the divison and/or seperation of the contentManagers; the database and the tmdb. 
+Currently, it queries one or the other pending on the category.
+I wish to formalise this, so the database can store the categories, the tmdb manager can collect.
+This allows, for the tmdb manager only to query _once_ a day for each seperate category - since if it has been fetched from the API
+it will show up in the log on the database. 
+
+This will lessen the number of API calls currently being made, and make the application more responsive. 
+
+Current categories (movies only):
+- Popular movies (Service, Country)
+- Newly released/in theatre (Country)
+- Movies ([Genres], rating_threhold=0)
+- 

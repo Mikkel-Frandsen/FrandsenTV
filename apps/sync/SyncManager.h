@@ -5,6 +5,10 @@
 #pragma once
 #include "DatabaseManager.h"
 #include <ctime> // Import the ctime library
+
+#include "TMDBManager.h"
+#include "../../libs/http/HttpClient.h"
+
 class SyncManager {
 public:
     void getPopularMovies();
@@ -18,12 +22,13 @@ public:
 
 private:
     DatabaseManager databaseManager;
-
+    TMDBManager tmdbMananger;
     Movie getMovieTMDB(const QString &tmbd_id);
 
     QString getImdbId(int);
+    HttpClient httpClient;
 
-private:
+
 };
 
 

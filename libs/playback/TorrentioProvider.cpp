@@ -22,10 +22,13 @@ TorrentioProvider::TorrentioProvider(QObject* parent)
 
 void TorrentioProvider::getStreams(const QString& stremioId)
 {
+    //https://torrentio.strem.fun/providers=yts,eztv,rarbg,1337x,ext,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,horriblesubs,nyaasi,tokyotosho,anidex,nekobt|qualityfilter=scr,unknown,cam,480p,720p/manifest.json
     qDebug() << "inside getStreams";
     QUrl url(
         "https://torrentio.strem.fun/"
-        "qualityfilter=720p,480p,cam,scr|"
+        "providers=yts,eztv,rarbg,1337x,ext,thepiratebay,kickasstorrents,torrentgalaxy,magnetdl,horriblesubs,nyaasi,tokyotosho,anidex,nekobt|"
+        "qualityfilter=480p,cam,scr,unknown|"
+        "sort=seeders"
         "/stream/movie/"
         + stremioId
         + ".json"
@@ -66,7 +69,6 @@ void TorrentioProvider::getStreams(const QString& stremioId)
             }
 
             const QJsonObject jsonObject = jsonDoc.object();
-            qDebug() << jsonObject;
             const QList<Stream> streams = jsonToStreams(jsonObject);
             emit streamsReady(streams);
             reply->deleteLater();
@@ -74,7 +76,41 @@ void TorrentioProvider::getStreams(const QString& stremioId)
     );
 }
 
+//https://www.patreon.com/debridmediamanager/posts/complete-list-of-158388927
+bool containsFilters(const QString& filename)
+{
+    // Rule 1: substring matches
+    static const QStringList substringFilters = {
+        "web-dl",
+        "webrip",
+        "bdrip",
+        "hdrip",
+        "dvdrip"
+    };
 
+    for (const QString& filter : substringFilters) {
+        if (filename.contains(filter, Qt::CaseInsensitive)) {
+            return true;
+        }
+    }
+
+    // Rule 2: source.codec combinations
+    static const QStringList dotFilters = {
+        "bluray.x264",
+        "hdtv.x264",
+        "hdtv.xvid",
+        "web.x264",
+        "web.h264"
+    };
+
+    for (const QString& filter : dotFilters) {
+        if (filename.contains(filter, Qt::CaseInsensitive)) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 
 QList<Stream> TorrentioProvider::jsonToStreams(const QJsonObject& json)
@@ -100,9 +136,9 @@ QList<Stream> TorrentioProvider::jsonToStreams(const QJsonObject& json)
         QString filename = streamJsonObj["filename"].toString()
                                 + stream.title
                                 + stream.bingeGroup;
-
-        streams.append(stream);
-
+        if (!containsFilters(filename)) {
+            streams.append(stream);
+        }
     }
     return streams;
 }

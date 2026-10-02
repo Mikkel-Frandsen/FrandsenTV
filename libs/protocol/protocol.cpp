@@ -92,6 +92,8 @@ namespace Protocol {
         }
 
         json["movies"] = movies;
+        json["title"] = catalog.title;
+        json["id"] = catalog.id;
 
         return json;
 
@@ -118,6 +120,9 @@ namespace Protocol {
 
             catalog.movies.append(movie);
         }
+        catalog.title = json["title"].toString();
+        catalog.id = json["id"].toString();
+
         return catalog;
     }
 }

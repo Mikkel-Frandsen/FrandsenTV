@@ -1,8 +1,8 @@
 add_library(domain
         movie.cpp
         movie.h
-        catalog.cpp
-        catalog.h
+        Catalog.cpp
+        Catalog.h
 )
 
 target_include_directories(domain

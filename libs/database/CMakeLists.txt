@@ -1,5 +1,7 @@
 add_library(database STATIC
         DatabaseManager.cpp
+        CatalogRep.cpp
+        CatalogRep.h
 )
 
 target_include_directories(database
@@ -12,4 +14,5 @@ target_link_libraries(database
         Qt6::Sql
         domain
         protocol
+        http
 )

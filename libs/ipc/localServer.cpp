@@ -42,8 +42,10 @@ void LocalServer::handleNewConnection() {
 }
 
 void LocalServer::sendMessage(Protocol::Message message, QLocalSocket *client_Socket) {
-    client_Socket->write(encode(message));
-    client_Socket->flush();
+    const QByteArray encoded = Protocol::encode(message);
+
+    clientSocket->write(encoded);
+    clientSocket->flush();
 }
 
 //We now load in the all we can read. If we get messages such as ST -> OP -> \nSTART\n

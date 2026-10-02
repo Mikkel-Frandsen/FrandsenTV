@@ -47,19 +47,40 @@ void LocalClient::sendMessage(Protocol::Message message) {
 
 
 
-void LocalClient::readMessage() {
-    readBuffer += socket.readAll();
+void LocalClient::readMessage()
+{
 
-    while (readBuffer.contains('\n')) {
-        //Find the first \n
-        const int newlineIndex = readBuffer.indexOf('\n');
-        //Take all bytes before that \n
-        QByteArray message_bytes = readBuffer.left(newlineIndex + 1);
-        //Remove that message from the buffer.
+
+    const QByteArray received = socket.readAll();
+
+
+    if (received.isEmpty())
+        return;
+
+    readBuffer.append(received);
+
+    while (true) {
+        //There was a bug here, after I added 11 enums! Because now
+        //it became a \n...
+        const qsizetype newlineIndex =
+            readBuffer.indexOf('\n', sizeof(int));
+
+        if (newlineIndex == -1) {
+            return;
+        }
+
+        QByteArray messageBytes =
+            readBuffer.left(newlineIndex);
+
         readBuffer.remove(0, newlineIndex + 1);
-        Protocol::Message message = Protocol::decode(message_bytes);
+
+
+        if (messageBytes.isEmpty())
+            continue;
+
+        Protocol::Message message =
+            Protocol::decode(messageBytes);
+
         handleMessage(message);
     }
 }
-
-

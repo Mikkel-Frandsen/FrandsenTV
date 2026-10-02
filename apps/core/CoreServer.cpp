@@ -3,12 +3,14 @@
 //
 
 #include "CoreServer.h"
-
-CoreServer::CoreServer(const QString& serverName)
-    :   LocalServer(serverName),
-        playbackManager(this)
+CoreServer::CoreServer(const QString &serverName)
+    : LocalServer(serverName),
+      playbackManager(this),
+      databaseManager(),
+      tmdbManager(),
+      catalogRep(&databaseManager, &tmdbManager), // Passes living references
+      contentManager(&catalogRep)            // Passes CatalogRep pointer
 {
-
 }
 
 void CoreServer::handleMessage(Protocol::Message message, QLocalSocket *clientSocket) {
@@ -21,11 +23,17 @@ void CoreServer::handleMessage(Protocol::Message message, QLocalSocket *clientSo
             //todo make a check that this is actually the correctdata type (QSTING)
             QJsonObject data = message.data;
             QString streamioID = data["streamio_id"].toString();
+
+            QString imdbId = contentManager.getImdbId(streamioID);
+
             qDebug() << "Received CommandPlay :" <<streamioID;
+            qDebug() << "Received CommandPlay :" <<imdbId;
+
             qDebug() << "PlaybackManager:" << &playbackManager;
             qDebug() << "BEFORE playMovie";
-            playbackManager.playMovie(streamioID);
+            playbackManager.playMovie(imdbId);
             qDebug() << "AFTER playMovie";
+
             break;
         }
         case Protocol::MessageType::CommandStop: {
@@ -35,37 +43,80 @@ void CoreServer::handleMessage(Protocol::Message message, QLocalSocket *clientSo
 
         case Protocol::MessageType::QueryGetMovie: {
         }
-        case Protocol::MessageType::QueryGetTopContent: {
+        case Protocol::MessageType::QueryGetPage: {
+            qDebug() << "Received ResponseGetPage";
+            QJsonObject data = message.data;
 
-            qDebug() << "Received QueryGetTopContent";
-            //return a catalog of topMovies (needs service, country)
-            //message.data["country, content, service"]...
+            const int page = data["page"].toInt();
+            QVector<Catalog> pageCatalogs = contentManager.getPage(static_cast<Protocol::Page>(page));
+            QJsonArray catalogs;
+            for (const Catalog& catalog : pageCatalogs) {
+                catalogs.append(Protocol::encodeCatalog(catalog));
+            }
 
-
-            Catalog catalog = databaseManager.getTopMovies(
-                message.data["service"].toString(),
-                message.data["country"].toString());
-
-            qDebug() << "Creating Response";
-            QJsonObject res = message.data;
-            res["catalog"] = Protocol::encodeCatalog(catalog);
+            QJsonObject responseData;
+            responseData["catalogs"] = catalogs;
+            responseData["page"] = page;
             Protocol::Message response{
-                Protocol::MessageType::ResponseGetTopContent,
-                res
+                Protocol::MessageType::ResponseGetPage,
+                responseData
             };
-            qDebug() << "Sending ResponseGetTopContent";
+            qDebug() << "Sending ResponseGetPage";
             sendMessage(
                     response,
                     clientSocket
                 );
             break;
+
+        }
+        case Protocol::MessageType::QueryGetTopContent: {
+
+            qDebug() << "Received QueryGetTopContent";
+
+            const QString content =
+                message.data["content"].toString();
+
+            const QString service =
+                message.data["service"].toString();
+
+            const QString country =
+                message.data["country"].toString();
+
+
+            Catalog catalog =
+                databaseManager.getTopMovies(service, country);
+
+            catalog.id = "topContent";
+            catalog.title = service ;
+
+            qDebug() << "Creating Response";
+
+            QJsonObject responseData;
+            responseData["catalog"] =
+                Protocol::encodeCatalog(catalog);
+
+            responseData["content"] = content;
+            responseData["service"] = service;
+            responseData["country"] = country;
+
+            Protocol::Message response{
+                Protocol::MessageType::ResponseGetTopContent,
+                responseData
+            };
+
+
+
+            qDebug() << "Sending ResponseGetTopContent";
+
+            sendMessage(response, clientSocket);
+
+            break;
         }
 
-
         case Protocol::MessageType::QueryGetCatalog: {
-
             qDebug() << "Received QueryGetCatalog";
             Catalog catalog = databaseManager.getCatalog();
+            catalog.title = "All Movies";
             qDebug() << "Creating Response";
 
             Protocol::Message response{

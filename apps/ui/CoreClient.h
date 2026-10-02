@@ -6,6 +6,7 @@
 #define SMARTTV_CORECLIENT_H
 #include <QLocalSocket>
 #include "localClient.h"
+#include "protocol.h"
 class CoreClient : public LocalClient {
     Q_OBJECT
 public:
@@ -17,6 +18,7 @@ public:
     Q_INVOKABLE void getCatalog();
 
     Q_INVOKABLE void getTopContent(QString content, QString service, QString country);
+    Q_INVOKABLE void getPage(Protocol::Page page);
 
     Q_INVOKABLE void play(QString streamio_id);
 
@@ -40,6 +42,7 @@ signals:
     void playbackStopped();
     void catalogReceived(QVariantList movies);
     void topContentReceived(QVariantList movies, QString service, QString country, QString content);
+    void pageReceived(QVariantList catalogs, int page);
 
 };
 

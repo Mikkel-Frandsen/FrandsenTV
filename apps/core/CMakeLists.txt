@@ -11,6 +11,10 @@ qt_add_executable(smarttv-core
         ../../libs/database/DatabaseManager.h
         ../sync/SyncManager.cpp
         ../sync/SyncManager.h
+        ../../libs/http/TMDBManager.cpp
+        ../../libs/http/TMDBManager.h
+        ContentManager.cpp
+        ContentManager.h
 
 )
 
@@ -25,4 +29,5 @@ target_link_libraries(smarttv-core
         domain
         database
         playback
+        http
 )
